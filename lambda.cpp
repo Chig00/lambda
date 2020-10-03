@@ -1,5 +1,9 @@
 #include <iostream>
+#include <sstream>
 #include <memory>
+
+// True if the details of evaluation are to be displayed.
+constexpr bool VERBOSE = false;
 
 // Stringable Class
 //{
@@ -91,12 +95,14 @@ class Variable: public LambdaTerm {
          * Returns itself, as variables cannot be reduced.
          */
         std::unique_ptr<LambdaTerm> reduce() const noexcept {
-            std::cout
-                << std::endl
-                << "Reduction of "
-                << *this
-                << std::endl
-            ;
+            if (VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Reduction of "
+                    << *this
+                    << std::endl
+                ;
+            }
             
             return std::make_unique<Variable>(*this);
         }
@@ -165,12 +171,14 @@ class Abstraction: public LambdaTerm {
          * Attempts to reduce the function definition to produce a beta-normal form.
          */
         std::unique_ptr<LambdaTerm> reduce() const noexcept {
-            std::cout
-                << std::endl
-                << "Reduction of "
-                << *this
-                << std::endl
-            ;
+            if (VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Reduction of "
+                    << *this
+                    << std::endl
+                ;
+            }
             
             std::unique_ptr<Abstraction> reduced(std::make_unique<Abstraction>(*this));
             reduced->definition = definition->reduce();
@@ -181,14 +189,16 @@ class Abstraction: public LambdaTerm {
          * Substitutes in the value of the argument into the definition.
          */
         std::unique_ptr<LambdaTerm> apply(const LambdaTerm& argument) const noexcept {
-            std::cout
-                << std::endl
-                << "Application of "
-                << *this
-                << " to "
-                << argument
-                << std::endl
-            ;
+            if (VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Application of "
+                    << *this
+                    << " to "
+                    << argument
+                    << std::endl
+                ;
+            }
             
             return definition->substitute(variable, argument);
         }
@@ -201,16 +211,18 @@ class Abstraction: public LambdaTerm {
             const Variable& variable,
             const LambdaTerm& term
         ) const noexcept {
-            std::cout
-                << std::endl
-                << "Substitution of "
-                << term
-                << " for "
-                << variable
-                << " into "
-                << *this
-                << std::endl
-            ;
+            if (VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Substitution of "
+                    << term
+                    << " for "
+                    << variable
+                    << " into "
+                    << *this
+                    << std::endl
+                ;
+            }
             
             // There is name collision and this function takes precedence.
             if (variable == this->variable) {
@@ -336,12 +348,14 @@ class Application: public LambdaTerm {
          * Attempts to apply the function to the argument to produce a beta-normal form.
          */
         std::unique_ptr<LambdaTerm> reduce() const noexcept {
-            std::cout
-                << std::endl
-                << "Reduction of "
-                << *this
-                << std::endl
-            ;
+            if (VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Reduction of "
+                    << *this
+                    << std::endl
+                ;
+            }
             
             // Application of variables to arguments should not be attempted.
             if (dynamic_cast<Variable*>(&*function)) {
@@ -359,14 +373,16 @@ class Application: public LambdaTerm {
          * This application is reduced before applying to the argument.
          */
         std::unique_ptr<LambdaTerm> apply(const LambdaTerm& argument) const noexcept {
-            std::cout
-                << std::endl
-                << "Application of "
-                << *this
-                << " to "
-                << argument
-                << std::endl
-            ;
+            if (VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Application of "
+                    << *this
+                    << " to "
+                    << argument
+                    << std::endl
+                ;
+            }
             
             std::unique_ptr<LambdaTerm> reduced(reduce());
             
@@ -415,16 +431,18 @@ class Application: public LambdaTerm {
             const Variable& variable,
             const LambdaTerm& term
         ) const noexcept {
-            std::cout
-                << std::endl
-                << "Substitution of "
-                << term
-                << " for "
-                << variable
-                << " into "
-                << *this
-                << std::endl
-            ;
+            if (VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Substitution of "
+                    << term
+                    << " for "
+                    << variable
+                    << " into "
+                    << *this
+                    << std::endl
+                ;
+            }
             
             std::unique_ptr<Application> subbed(std::make_unique<Application>(*this));
             subbed->function = function->substitute(variable, term);
@@ -445,14 +463,16 @@ class Application: public LambdaTerm {
  * If the argument is an application, reduction is attempted.
  */
 std::unique_ptr<LambdaTerm> Variable::apply(const LambdaTerm& argument) const noexcept {
-    std::cout
-        << std::endl
-        << "Application of "
-        << *this
-        << " to "
-        << argument
-        << std::endl
-    ;
+    if (VERBOSE) {
+        std::cout
+            << std::endl
+            << "Application of "
+            << *this
+            << " to "
+            << argument
+            << std::endl
+        ;
+    }
 
     // The argument was a variable.
     if (dynamic_cast<const Variable*>(&argument)) {
@@ -493,16 +513,18 @@ std::unique_ptr<LambdaTerm> Variable::substitute(
     const Variable& variable,
     const LambdaTerm& term
 ) const noexcept {
-    std::cout
-        << std::endl
-        << "Substitution of "
-        << term
-        << " for "
-        << variable
-        << " into "
-        << *this
-        << std::endl
-    ;
+    if (VERBOSE) {
+        std::cout
+            << std::endl
+            << "Substitution of "
+            << term
+            << " for "
+            << variable
+            << " into "
+            << *this
+            << std::endl
+        ;
+    }
 
     // The variable should be substituted.
     if (operator==(variable)) {
@@ -623,24 +645,46 @@ Application operator,(const Function& function, const Argument& argument) noexce
  * Evaluates a lambda term.
  */
 int main() noexcept {
+    // Logs the reduction of MAIN.
+    std::stringstream logger;
+    
     // Main is displayed.
     std::cout
         << std::endl
+        << "MAIN := "
         << MAIN
         << std::endl
     ;
+    
+    if (VERBOSE) {
+        logger
+            << std::endl
+            << "MAIN := "
+            << MAIN
+            << std::endl
+        ;
+    }
     
     // Main is reduced.
     std::unique_ptr<LambdaTerm> reduced(MAIN.reduce());
     
     while (MAIN.to_string() != reduced->to_string()) {
-        // The reduced from is displayed.
-        std::cout
-            << std::endl
-            << "= "
-            << *reduced
-            << std::endl
-        ;
+        if (VERBOSE) {
+            // The reduced from is displayed.
+            std::cout
+                << std::endl
+                << "= "
+                << *reduced
+                << std::endl
+            ;
+        
+            logger
+                << std::endl
+                << "= "
+                << *reduced
+                << std::endl
+            ;
+        }
         
         // Further reduction is attempted.
         std::unique_ptr<LambdaTerm> new_reduced(reduced->reduce());
@@ -663,6 +707,14 @@ int main() noexcept {
         << *reduced
         << std::endl
     ;
+    
+    if (VERBOSE) {
+        std::cout
+            << "\n\n\nSummary:"
+            << std::endl
+            << logger.str()
+        ;
+    }
     
     return 0;
 }

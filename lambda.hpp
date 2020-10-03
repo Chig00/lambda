@@ -20,7 +20,10 @@ const Abstraction K(
     )
 );
 
-// S Combinator
+/* S Combinator
+ * SK Combinatory Calculus is Turing Complete.
+ * S, K, V(x) = I
+ */
 const Abstraction S(
     V(x) >> (
         V(y) >> (
@@ -81,7 +84,15 @@ const Abstraction Y(
     )
 );
 
-// Iota Combinator
+/* Iota Combinator
+ * The Iota Combinator is Turing Complete by itself.
+ * IOTA, IOTA = I
+ * IOTA, (IOTA, IOTA) = FALSE = ZERO
+ * IOTA, (IOTA, (IOTA, IOTA)) = TRUE = K
+ * IOTA, (IOTA, (IOTA, (IOTA, IOTA))) = S
+ * SK Combinatory Calculus is Turing Complete, so
+ *   Iota Combinatory Calculus is Turing Complete.
+ */
 const Abstraction IOTA(
     V(f) >> (
         V(f), S, K
@@ -160,14 +171,108 @@ const Abstraction ZERO(
     )
 );
 
+// Matural One
+const Abstraction ONE(
+    V(f) >> (
+        V(x) >> (
+            V(f), V(x)
+        )
+    )
+);
+
 // Natural Successor
 const Abstraction SUCC(
     V(n) >> (
         V(f) >> (
             V (x) >> (
-                V(f),
-                (V(n), V(f), V(x))
+                V(f), (V(n), V(f), V(x))
             )
+        )
+    )
+);
+
+// Natural Addition
+const Abstraction PLUS(
+    V(m) >> (
+        V(n) >> (
+            V(m), SUCC, V(n)
+        )
+    )
+);
+
+// Natural Multiplication
+const Abstraction MULT(
+    V(m) >> (
+        V(n) >> (
+            V(m), (PLUS, V(n)), ZERO
+        )
+    )
+);
+
+// Natural Exponentiation
+const Abstraction POW(
+    V(m) >> (
+        V(n) >> (
+            V(n), (MULT, V(m)), ONE
+        )
+    )
+);
+
+// Natural Predecessor
+const Abstraction PRED(
+    V(n) >> (
+        V(f) >> (
+            V(x) >> (
+                V(n),
+                (
+                    V(g) >> (
+                        V(h) >> (
+                            V(h), (V(g), V(f))
+                        )
+                    )
+                ),
+                (
+                    V(u) >> (
+                        V(x)
+                    )
+                ),
+                (
+                    V(u) >> (
+                        V(u)
+                    )
+                )
+            )
+        )
+    )
+);
+
+// Natural Subtraction
+const Abstraction SUB(
+    V(m) >> (
+        V(n) >> (
+            V(n), PRED, V(m)
+        )
+    )
+);
+
+// Natural Zero Test
+const Abstraction ISZERO(
+    V(n) >> (
+        V(n),
+        (
+            V(x) >> (
+                FALSE
+            )
+        ),
+        TRUE
+    )
+);
+
+// Natural <= Test
+const Abstraction LEQ(
+    V(m) >> (
+        V(n) >> (
+            ISZERO, (SUB, V(m), V(n))
         )
     )
 );
@@ -175,14 +280,30 @@ const Abstraction SUCC(
 /**
  * Returns the Church Numeral corresponding to the given argument.
  */
-Application NAT(int n) noexcept {
-    Application x(I, ZERO);
-    
-    for (int i = 0; i < n; ++i) {
-        x = (SUCC, x);
+Abstraction NAT(int n) noexcept {
+    // The number is positive.
+    if (n > 0) {
+        Application numeral(V(f), V(x));
+        
+        for (int i = 1; i < n; ++i) {
+            numeral = (V(f), numeral);
+        }
+        
+        return
+            Abstraction(
+                V(f) >> (
+                    V(x) >> (
+                        numeral
+                    )
+                )
+            )
+        ;
     }
     
-    return x;
+    // Requests for a non-positive number returns Church Numeral 0.
+    else {
+        return ZERO;
+    }
 }
 //}
 
@@ -199,20 +320,23 @@ const Abstraction PAIR(
     )
 );
 
-// First Pair Accessor
+// Pair First Accessor
 const Abstraction FIRST(
     V(p) >> (
         V(p), TRUE
     )
 );
 
-// Second Pair Accessor
+// Pair Second Accessor
 const Abstraction SECOND(
     V(p) >> (
         V(p), FALSE
     )
 );
+//}
 
+// Lists
+//{
 // Empty List
 const Abstraction NIL(
     V(x) >> (
@@ -221,12 +345,77 @@ const Abstraction NIL(
 );
 
 // Empty List Test
-const Abstraction NULLP(
+const Abstraction ISNIL(
     V(p) >> (
-        V(p), (
+        V(p),
+        (
             V(x) >> (
                 V(y) >> (
                     FALSE
+                )
+            )
+        )
+    )
+);
+
+// List Prepending
+const Abstraction CONS(
+    V(h) >> (
+        V(t) >> (
+            PAIR, V(h), V(t)
+        )
+    )
+);
+
+// List Head Accessor
+const Abstraction HEAD(
+    FIRST
+);
+
+// List Tail Accessor
+const Abstraction TAIL(
+    SECOND
+);
+
+// List Index Accessor
+const Application INDEX(
+    Y,
+    (
+        V(f) >> (
+            V(l) >> (
+                V(n) >> (
+                    ISZERO, V(n), (HEAD, V(l)), (V(f), (TAIL, V(l)), (PRED, V(n)))
+                )
+            )
+        )
+    )
+);
+//}
+
+// Algorithms
+//{
+// Factorial Function
+const Application FACT(
+    Y,
+    (
+        V(f) >> (
+            V(n) >> (
+                ISZERO, V(n), ONE, (MULT, V(n), (V(f), (PRED, V(n))))
+            )
+        )
+    )
+);
+
+// Fibonacci Function
+const Application FIBO(
+    Y,
+    (
+        V(f) >> (
+            V(n) >> (
+                ISZERO, V(n), ZERO,
+                (
+                    ISZERO, (PRED, V(n)), ONE,
+                    (PLUS, (V(f), (PRED, V(n))), (V(f), (PRED, (PRED, V(n)))))
                 )
             )
         )
@@ -237,7 +426,7 @@ const Abstraction NULLP(
 
 // The lambda term to be evaluated.
 const LambdaTerm& MAIN = (
-    NAT(2)
+    FACT, NAT(3)
 );
 
 #undef V
