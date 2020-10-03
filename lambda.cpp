@@ -633,7 +633,7 @@ int main() noexcept {
     // Main is reduced.
     std::unique_ptr<LambdaTerm> reduced(MAIN.reduce());
     
-    while (true) {
+    while (MAIN.to_string() != reduced->to_string()) {
         // The reduced from is displayed.
         std::cout
             << std::endl

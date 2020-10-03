@@ -81,6 +81,13 @@ const Abstraction Y(
     )
 );
 
+// Iota Combinator
+const Abstraction IOTA(
+    V(f) >> (
+        V(f), S, K
+    )
+);
+
 // Omega Combinator
 const Application OMEGA(
     U, U
@@ -230,7 +237,7 @@ const Abstraction NULLP(
 
 // The lambda term to be evaluated.
 const LambdaTerm& MAIN = (
-    PAIR
+    NAT(2)
 );
 
 #undef V
