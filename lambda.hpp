@@ -360,11 +360,7 @@ const Abstraction ISNIL(
 
 // List Prepending
 const Abstraction CONS(
-    V(h) >> (
-        V(t) >> (
-            PAIR, V(h), V(t)
-        )
-    )
+    PAIR
 );
 
 // List Head Accessor
