@@ -1,17 +1,705 @@
+// System
+//{
+// Verbosity
+//{
+/**
+ * Defines the level of verbosity to be used in the program.
+ */
+enum Verbosity {
+    BASIC,
+    SUMMARY,
+    VERBOSE
+};
+
+// True if the details of evaluation are to be displayed.
+constexpr Verbosity VERBOSITY = BASIC;
+//}
+
+// Stringable Class
+//{
+/**
+ * An abstract base class for objects with the to_string() method.
+ */
+class Stringable {
+    public:
+        /**
+         * Returns a string representation of the object.
+         */
+        virtual std::string to_string() const noexcept = 0;
+};
+
+/**
+ * An overload for the stream insertion operator for Stringable objects.
+ */
+std::ostream& operator<<(std::ostream& stream, const Stringable& stringable) noexcept {
+    return stream << stringable.to_string();
+}
+//}
+
+// Lambda Term Classes
+//{
+// Class Definitions
+//{
+class Variable;
+
+/**
+ * An abstract base class for lambda terms to inherit from.
+ */
+class LambdaTerm: public Stringable {
+    public:
+        /**
+         * Attempts to reduce the lambda-term to produce a beta-normal form.
+         */
+        virtual std::unique_ptr<LambdaTerm> reduce() const noexcept = 0;
+        
+        /**
+         * Attempts to apply itself to the given argument.
+         */
+        virtual std::unique_ptr<LambdaTerm> apply(const LambdaTerm&) const noexcept = 0;
+        
+        /**
+         * Attempts to substitute the argument into the matching variables.
+         */
+        virtual std::unique_ptr<LambdaTerm> substitute(
+            const Variable&,
+            const LambdaTerm&
+        ) const noexcept = 0;
+};
+
+/**
+ * A lambda term that represents a parameter or value.
+ */
+class Variable: public LambdaTerm {
+    public:
+        /**
+         * Default constructor.
+         * Defualt variables are invalid.
+         */
+        Variable() noexcept: name("") {}
+    
+        /**
+         * Constructs a new variable with its name.
+         */
+        Variable(const std::string& name) noexcept: name(name) {}
+        
+        /**
+         * Constructs a new variable with its name (in C-string form).
+         */
+        Variable(const char* name) noexcept: name(name) {}
+        
+        /**
+         * Returns true if the two variables have the same name.
+         */
+        bool operator==(const Variable& variable) const noexcept {
+            return variable.name == name;
+        }
+        
+        /**
+         * Returns the variable's name.
+         */
+        std::string to_string() const noexcept {
+            return name;
+        }
+        
+        /**
+         * Returns itself, as variables cannot be reduced.
+         */
+        std::unique_ptr<LambdaTerm> reduce() const noexcept {
+            if (VERBOSITY >= VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Reduction of "
+                    << *this
+                    << std::endl
+                ;
+            }
+            
+            return std::make_unique<Variable>(*this);
+        }
+        
+        /**
+         * Returns itself applied to the given argument.
+         */
+        std::unique_ptr<LambdaTerm> apply(const LambdaTerm&) const noexcept;
+        
+        /**
+         * Returns the term passed if the variable passed is equal to this one.
+         * Returns this variable otherwise.
+         */
+        std::unique_ptr<LambdaTerm> substitute(
+            const Variable&,
+            const LambdaTerm&
+        ) const noexcept;
+        
+    private:
+        std::string name; // The variable's name.
+};
+
+/**
+ * A lambda term that represents a function definition.
+ */
+class Abstraction: public LambdaTerm {
+    public:
+        /**
+         * Constructs a new abstraction with its variable and definition.
+         */
+        template <typename Definition>
+        Abstraction(
+            const Variable& variable,
+            const Definition& definition
+        ) noexcept:
+            variable(variable),
+            definition(std::make_unique<Definition>(definition))
+        {}
+        
+        /**
+         * Creates a new abstraction as a copy of another.
+         */
+        Abstraction(const Abstraction& abstraction) noexcept {
+            operator=(abstraction);
+        }
+        
+        /**
+         * Copies the given abstraction.
+         */
+        Abstraction& operator=(const Abstraction& abstraction) noexcept;
+        
+        /**
+         * Returns the function in string form.
+         */
+        std::string to_string() const noexcept {
+            return
+                "(\\"
+                + variable.to_string()
+                + '.'
+                + definition->to_string()
+                + ')'
+            ;
+        }
+        
+        /**
+         * Attempts to reduce the function definition to produce a beta-normal form.
+         */
+        std::unique_ptr<LambdaTerm> reduce() const noexcept {
+            if (VERBOSITY >= VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Reduction of "
+                    << *this
+                    << std::endl
+                ;
+            }
+            
+            std::unique_ptr<Abstraction> reduced(std::make_unique<Abstraction>(*this));
+            reduced->definition = definition->reduce();
+            return reduced;
+        }
+        
+        /**
+         * Substitutes in the value of the argument into the definition.
+         */
+        std::unique_ptr<LambdaTerm> apply(const LambdaTerm& argument) const noexcept;
+        
+        /**
+         * Attempts to substitute the term into the definition, if the
+         *   variable passed is not equal to the abstraction's variable.
+         */
+        std::unique_ptr<LambdaTerm> substitute(
+            const Variable& variable,
+            const LambdaTerm& term
+        ) const noexcept {
+            if (VERBOSITY >= VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Substitution of "
+                    << term
+                    << " for "
+                    << variable
+                    << " in "
+                    << *this
+                    << std::endl
+                ;
+            }
+            
+            // There is name collision and this function takes precedence.
+            if (variable == this->variable) {
+                return std::make_unique<Abstraction>(*this);
+            }
+            
+            // The function definition is substituted into.
+            else {
+                std::unique_ptr<Abstraction> subbed(std::make_unique<Abstraction>(*this));
+                subbed->definition = definition->substitute(variable, term);
+                return subbed;
+            }
+        }
+        
+    private:
+        Variable variable;                      // The variable to substitute in.
+        std::unique_ptr<LambdaTerm> definition; // The function to be substituted into.
+};
+
+/**
+ * A lambda term that represents a function being applied to an argument.
+ */
+class Application: public LambdaTerm {
+    public:
+        /**
+         * Constructs a new application with its function and argument.
+         */
+        template<typename Function, typename Argument>
+        Application(
+            const Function& function,
+            const Argument& argument
+        ) noexcept:
+            function(std::make_unique<Function>(function)),
+            argument(std::make_unique<Argument>(argument))
+        {}
+        
+        /**
+         * Creates a new application as a copy of another.
+         */
+        Application(const Application& application) noexcept {
+            operator=(application);
+        }
+        
+        /**
+         * Copies the given application.
+         */
+        Application& operator=(const Application& application) noexcept {
+            // Self-assignment check.
+            if (this != &application) {
+                // The function is a variable.
+                if (dynamic_cast<Variable*>(&*application.function)) {
+                    function =
+                        std::make_unique<Variable>(
+                            static_cast<Variable&>(*application.function)
+                        )
+                    ;
+                }
+                
+                // The function is an application.
+                else if (dynamic_cast<Abstraction*>(&*application.function)) {
+                    function =
+                        std::make_unique<Abstraction>(
+                            static_cast<Abstraction&>(*application.function)
+                        )
+                    ;
+                }
+                
+                // The function is an application.
+                else {
+                    function =
+                        std::make_unique<Application>(
+                            static_cast<Application&>(*application.function)
+                        )
+                    ;
+                }
+                
+                // The argument is a variable.
+                if (dynamic_cast<Variable*>(&*application.argument)) {
+                    argument =
+                        std::make_unique<Variable>(
+                            static_cast<Variable&>(*application.argument)
+                        )
+                    ;
+                }
+                
+                // The argument is an application.
+                else if (dynamic_cast<Abstraction*>(&*application.argument)) {
+                    argument =
+                        std::make_unique<Abstraction>(
+                            static_cast<Abstraction&>(*application.argument)
+                        )
+                    ;
+                }
+                
+                // The argument is an application.
+                else {
+                    argument =
+                        std::make_unique<Application>(
+                            static_cast<Application&>(*application.argument)
+                        )
+                    ;
+                }
+            }
+            
+            // Self-reference returned.
+            return *this;
+        }
+        
+        /**
+         * Returns the application in string form.
+         */
+        std::string to_string() const noexcept {
+            return
+                '['
+                + function->to_string()
+                + ' '
+                + argument->to_string()
+                + ']'
+            ;
+        }
+        
+        /**
+         * Attempts to apply the function to the argument to produce a beta-normal form.
+         */
+        std::unique_ptr<LambdaTerm> reduce() const noexcept {
+            if (VERBOSITY >= VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Reduction of "
+                    << *this
+                    << std::endl
+                ;
+            }
+            
+            // Application of variables to arguments should not be attempted.
+            if (dynamic_cast<Variable*>(&*function)) {
+                std::unique_ptr<Application> reduced(std::make_unique<Application>(*this));
+                reduced->argument = argument->reduce();
+                return reduced;
+            }
+            
+            else {
+                return function->apply(*argument);
+            }
+        }
+        
+        /**
+         * This application is reduced before applying to the argument.
+         */
+        std::unique_ptr<LambdaTerm> apply(const LambdaTerm& argument) const noexcept {
+            if (VERBOSITY >= VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Application of "
+                    << *this
+                    << " to "
+                    << argument
+                    << std::endl
+                ;
+            }
+            
+            std::unique_ptr<LambdaTerm> reduced(reduce());
+            
+            // The reduction yielded no change.
+            if (reduced->to_string() == to_string()) {
+                // The argument is a variable.
+                if (dynamic_cast<const Variable*>(&argument)) {
+                    return
+                        std::make_unique<Application>(
+                            *this,
+                            static_cast<const Variable&>(argument)
+                        )
+                    ;
+                }
+                
+                // The argument is an abstraction.
+                else if (dynamic_cast<const Abstraction*>(&argument)) {
+                    return
+                        std::make_unique<Application>(
+                            *this,
+                            static_cast<const Abstraction&>(argument)
+                        )
+                    ;
+                }
+                
+                // The argument is an application.
+                else {
+                    return
+                        std::make_unique<Application>(
+                            *this,
+                            static_cast<const Application&>(argument)
+                        )
+                    ;
+                }
+            }
+            
+            else {
+                return reduced->apply(argument);
+            }
+        }
+        
+        /**
+         * Attempts to substitute the term into the function and argument.
+         */
+        std::unique_ptr<LambdaTerm> substitute(
+            const Variable& variable,
+            const LambdaTerm& term
+        ) const noexcept {
+            if (VERBOSITY >= VERBOSE) {
+                std::cout
+                    << std::endl
+                    << "Substitution of "
+                    << term
+                    << " for "
+                    << variable
+                    << " in "
+                    << *this
+                    << std::endl
+                ;
+            }
+            
+            std::unique_ptr<Application> subbed(std::make_unique<Application>(*this));
+            subbed->function = function->substitute(variable, term);
+            subbed->argument = argument->substitute(variable, term);
+            return subbed;
+        }
+        
+    private:
+        std::unique_ptr<LambdaTerm> function; // The function being applied.
+        std::unique_ptr<LambdaTerm> argument; // The argument being applied to.
+};
+//}
+
+// External Class Methods
+//{
+/**
+ * Returns itself applied to the given argument.
+ * If the argument is an application, reduction is attempted.
+ */
+std::unique_ptr<LambdaTerm> Variable::apply(const LambdaTerm& argument) const noexcept {
+    if (VERBOSITY >= VERBOSE) {
+        std::cout
+            << std::endl
+            << "Application of "
+            << *this
+            << " to "
+            << argument
+            << std::endl
+        ;
+    }
+
+    // The argument was a variable.
+    if (dynamic_cast<const Variable*>(&argument)) {
+        return
+            std::make_unique<Application>(
+                *this,
+                static_cast<const Variable&>(argument)
+            )
+        ;
+    }
+    
+    // The argument was an abstraction.
+    else if (dynamic_cast<const Abstraction*>(&argument)) {
+        return
+            std::make_unique<Application>(
+                *this,
+                static_cast<const Abstraction&>(argument)
+            )
+        ;
+    }
+    
+    // The argument was an application.
+    else {
+        return
+            std::make_unique<Application>(
+                *this,
+                static_cast<const Application&>(*argument.reduce())
+            )
+        ;
+    }
+}
+
+/**
+ * Returns the term passed if the variable passed is equal to this one.
+ * Returns this variable otherwise.
+ */
+std::unique_ptr<LambdaTerm> Variable::substitute(
+    const Variable& variable,
+    const LambdaTerm& term
+) const noexcept {
+    if (VERBOSITY >= VERBOSE) {
+        std::cout
+            << std::endl
+            << "Substitution of "
+            << term
+            << " for "
+            << variable
+            << " in "
+            << *this
+            << std::endl
+        ;
+    }
+
+    // The variable should be substituted.
+    if (operator==(variable)) {
+        // The term is a variable.
+        if (dynamic_cast<const Variable*>(&term)) {
+            return
+                std::make_unique<Variable>(
+                    static_cast<const Variable&>(term)
+                )
+            ;
+        }
+        
+        // The term is an abstraction.
+        else if (dynamic_cast<const Abstraction*>(&term)) {
+            return
+                std::make_unique<Abstraction>(
+                    static_cast<const Abstraction&>(term)
+                )
+            ;
+        }
+        
+        // The term is an application.
+        else {
+            return
+                std::make_unique<Application>(
+                    static_cast<const Application&>(term)
+                )
+            ;
+        }
+    }
+    
+    // The variable is returned unchanged.
+    else {
+        return std::make_unique<Variable>(*this);
+    }
+}
+
+/**
+ * Copies the given abstraction.
+ */
+Abstraction& Abstraction::operator=(const Abstraction& abstraction) noexcept {
+    // Self-assignment check.
+    if (this != &abstraction) {
+        // The variable is copied.
+        variable = abstraction.variable;
+        
+        // The definition is a variable.
+        if (dynamic_cast<Variable*>(&*abstraction.definition)) {
+            definition =
+                std::make_unique<Variable>(
+                    static_cast<Variable&>(*abstraction.definition)
+                )
+            ;
+        }
+        
+        // The definition is an abstraction.
+        else if (dynamic_cast<Abstraction*>(&*abstraction.definition)) {
+            definition =
+                std::make_unique<Abstraction>(
+                    static_cast<Abstraction&>(*abstraction.definition)
+                )
+            ;
+        }
+        
+        // The definition is an application.
+        else if (dynamic_cast<Application*>(&*abstraction.definition)) {
+            definition =
+                std::make_unique<Application>(
+                    static_cast<Application&>(*abstraction.definition)
+                )
+            ;
+        }
+    }
+    
+    // Self-reference returned.
+    return *this;
+}
+
+/**
+ * Substitutes in the value of the argument into the definition.
+ */
+std::unique_ptr<LambdaTerm> Abstraction::apply(const LambdaTerm& argument) const noexcept {
+    if (VERBOSITY >= VERBOSE) {
+        std::cout
+            << std::endl
+            << "Application of "
+            << *this
+            << " to "
+            << argument
+            << std::endl
+        ;
+    }
+    
+    // Substitution has no effect and is skipped.
+    if (argument.to_string() == variable.to_string()) {
+        // The definition is a variable.
+        if (dynamic_cast<Variable*>(&*definition)) {
+            return
+                std::make_unique<Variable>(
+                    static_cast<Variable&>(*definition)
+                )
+            ;
+        }
+        
+        // The definition is an abstraction.
+        else if (dynamic_cast<Abstraction*>(&*definition)) {
+            return
+                std::make_unique<Abstraction>(
+                    static_cast<Abstraction&>(*definition)
+                )
+            ;
+        }
+        
+        // The definition is an application.
+        else {
+            return
+                std::make_unique<Application>(
+                    static_cast<Application&>(*definition)
+                )
+            ;
+        }
+    }
+    
+    else {
+        return definition->substitute(variable, argument);
+    }
+}
+//}
+//}
+
+// Alternative Syntax
+//{
+/**
+ * Alternative syntax for abstraction.
+ */
+template <typename Definition>
+Abstraction operator>>(const Variable& variable, const Definition& definition) noexcept {
+    return
+        Abstraction(
+            variable,
+            definition
+        )
+    ;
+}
+
+/**
+ * Alternative syntax for application.
+ */
+template <typename Function, typename Argument>
+Application operator,(const Function& function, const Argument& argument) noexcept {
+    return
+        Application(
+            function,
+            argument
+        )
+    ;
+}
+//}
+//}
+
 #define V(X) Variable(#X)
 
-// Term Definitions
+// Lambda Term Definitions
 //{
 // Combinators
 //{
-// I Combinator
+/* I Combinator
+ * Returns the argument given.
+ */
 const Abstraction I(
     V(x) >> (
         V(x)
     )
 );
 
-// K Combinator
+/* K Combinator
+ * Returns the first argument given and ignores the second.
+ */
 const Abstraction K(
     V(x) >> (
         V(y) >> (
@@ -65,14 +753,19 @@ const Abstraction W(
     )
 );
 
-// U Combinator
+/* U Combinator
+ * Applies the argument to itself.
+ */
 const Abstraction U(
     V(x) >> (
         V(x), V(x)
     )
 );
 
-// Y Combinator
+/* Y Combinator
+ * Allows recursion.
+ * Y, V(g) = V(g), (Y, V(g)) = V(g), (V(g), (Y, V(g))) = ...
+ */
 const Abstraction Y(
     V(g) >> (
         V(x) >> (
@@ -99,7 +792,10 @@ const Abstraction IOTA(
     )
 );
 
-// Omega Combinator
+/* Omega Combinator
+ * Has no Beta-Normal Form.
+ * Omega reduces to Omega
+ */
 const Application OMEGA(
     U, U
 );
@@ -192,7 +888,7 @@ const Abstraction SUCC(
 );
 
 // Natural Addition
-const Abstraction PLUS(
+const Abstraction ADD(
     V(m) >> (
         V(n) >> (
             V(m), SUCC, V(n)
@@ -201,19 +897,19 @@ const Abstraction PLUS(
 );
 
 // Natural Multiplication
-const Abstraction MULT(
+const Abstraction MUL(
     V(m) >> (
         V(n) >> (
-            V(m), (PLUS, V(n)), ZERO
+            V(m), (ADD, V(n)), ZERO
         )
     )
 );
 
 // Natural Exponentiation
-const Abstraction POW(
+const Abstraction EXP(
     V(m) >> (
         V(n) >> (
-            V(n), (MULT, V(m)), ONE
+            V(n), (MUL, V(m)), ONE
         )
     )
 );
@@ -268,11 +964,80 @@ const Abstraction ISZERO(
     )
 );
 
-// Natural <= Test
+// Natural Less Than or Equal To Test
 const Abstraction LEQ(
     V(m) >> (
         V(n) >> (
             ISZERO, (SUB, V(m), V(n))
+        )
+    )
+);
+
+// Natural Division
+const Abstraction DIV(
+    V(x) >> (
+        V(y) >> (
+            Y,
+            (
+                V(f) >> (
+                    V(n) >> (
+                        V(x) >> (
+                            V(y) >> (
+                                ISZERO, V(x), (PRED, V(n)),
+                                (V(f), (SUCC, V(n)), (SUB, V(x), V(y)), V(y))
+                            )
+                        )
+                    )
+                )
+            ),
+            ZERO,
+            (SUCC, V(x)),
+            V(y)
+        )
+    )
+);
+
+// Natural Modulo
+const Application MOD((
+    Y,
+    (
+        V(f) >> (
+            V(n) >> (
+                V(m) >> (
+                    V(x) >> (
+                        V(y) >> (
+                            LEQ, V(x), V(n), V(m),
+                            (
+                                V(f),
+                                (SUCC, V(n)),
+                                (LEQ, V(y), (SUCC, V(m)), ZERO, (SUCC, V(m))),
+                                V(x),
+                                V(y)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    ),
+    ZERO,
+    ZERO
+));
+
+// Natural Minimum
+const Abstraction MIN(
+    V(x) >> (
+        V(y) >> (
+            LEQ, V(x), V(y), V(x), V(y)
+        )
+    )
+);
+
+// Natural Maximum
+const Abstraction MAX(
+    V(x) >> (
+        V(y) >> (
+            LEQ, V(x), V(y), V(y), V(x)
         )
     )
 );
@@ -337,6 +1102,8 @@ const Abstraction SECOND(
 
 // Lists
 //{
+// General
+//{
 // Empty List
 const Abstraction NIL(
     V(x) >> (
@@ -374,18 +1141,367 @@ const Abstraction TAIL(
 );
 
 // List Index Accessor
-const Application INDEX(
+const Abstraction INDEX(
+    V(l) >> (
+        V(i) >> (
+            HEAD, (V(i), TAIL, V(l))
+        )
+    )
+);
+
+// List Last Accessor
+const Application LAST(
     Y,
     (
         V(f) >> (
             V(l) >> (
+                ISNIL, (TAIL, V(l)), (HEAD, V(l)), (V(f), (TAIL, V(l)))
+            )
+        )
+    )
+);
+
+// List Size
+const Application SIZE((
+    Y,
+    (
+        V(f) >> (
+            V(n) >> (
+                V(l) >> (
+                    ISNIL, V(l), V(n), (V(f), (SUCC, V(n)), (TAIL, V(l)))
+                )
+            )
+        )
+    ),
+    ZERO
+));
+
+// List Reverser
+const Application REV((
+    Y,
+    (
+        V(f) >> (
+            V(n) >> (
+                V(l) >> (
+                    ISNIL, V(l), V(n), (V(f), (CONS, (HEAD, V(l)), V(n)), (TAIL, V(l)))
+                )
+            )
+        )
+    ),
+    NIL
+));
+
+// Inclusive List Slicer
+const Application SLICE((
+    Y,
+    (
+        V(f) >> (
+            V(n) >> (
+                V(l) >> (
+                    V(a) >> (
+                        V(b) >> (
+                            ISZERO, V(a),
+                            (
+                                ISZERO, V(b),
+                                (REV, (CONS, (HEAD, V(l)), V(n))),
+                                (V(f), (CONS, (HEAD, V(l)), V(n)), (TAIL, V(l)), V(a), (PRED, V(b)))
+                            ),
+                            (
+                                V(f), V(n), (V(a), TAIL, V(l)), ZERO, (SUB, V(b), V(a))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    ),
+    NIL
+));
+
+// List Appending
+const Abstraction APP(
+    V(l) >> (
+        V(x) >> (
+            REV, (CONS, V(x), (REV, V(l)))
+        )
+    )
+);
+
+// List Concatenation
+const Abstraction CONCAT(
+    V(x) >> (
+        V(y) >> (
+            Y,
+            (
+                V(f) >> (
+                    V(x) >> (
+                        V(y) >> (
+                            ISNIL, V(x), V(y), (V(f), (TAIL, V(x)), (CONS, (HEAD, V(x)), V(y)))
+                        )
+                    )
+                )
+            ),
+            (REV, V(x)),
+            V(y)
+        )
+    )
+);
+
+// List Function Mapping
+const Abstraction MAP(
+    V(l) >> (
+        V(g) >> (
+            Y,
+            (
+                V(f) >> (
+                    V(n) >> (
+                        V(l) >> (
+                            V(g) >> (
+                                ISNIL, V(l), V(n),
+                                (V(f), (CONS, (V(g), (HEAD, V(l))), V(n)), (TAIL, V(l)), V(g))
+                            )
+                        )
+                    )
+                )
+            ),
+            NIL,
+            (REV, V(l)),
+            V(g)
+        )
+    )
+);
+
+// List Function Folding
+const Abstraction FOLD(
+    V(l) >> (
+        V(g) >> (
+            Y,
+            (
+                V(f) >> (
+                    V(l) >> (
+                        V(n) >> (
+                            V(g) >> (
+                                ISNIL, V(l), V(n),
+                                (V(f), (TAIL, V(l)), (V(g), (HEAD, V(l)), V(n)), V(g))
+                            )
+                        )
+                    )
+                )
+            ),
+            (TAIL, V(l)),
+            (HEAD, V(l)),
+            V(g)
+        )
+    )
+);
+
+// List Function Filtering
+const Abstraction FILT(
+    V(l) >> (
+        V(g) >> (
+            Y,
+            (
+                V(f) >> (
+                    V(n) >> (
+                        V(l) >> (
+                            V(g) >> (
+                                ISNIL, V(l), V(n),
+                                (
+                                    V(f),
+                                    (
+                                        V(g), (HEAD, V(l)),
+                                        (CONS, (HEAD, V(l)), V(n)),
+                                        V(n)
+                                    ),
+                                    (TAIL, V(l)),
+                                    V(g)
+                                )
+                            )
+                        )
+                    )
+                )
+            ),
+            NIL,
+            (REV, V(l)),
+            V(g)
+        )
+    )
+);
+//}
+
+// Generation
+//{
+// Duplicate List
+const Abstraction DUP(
+    V(x) >> (
+        V(n) >> (
+            V(n), (CONS, V(x)), NIL
+        )
+    )
+);
+
+// Inclusive Descending List
+const Application DLIST(
+    Y,
+    (
+        V(f) >> (
+            V(n) >> (
+                CONS, V(n), (ISZERO, V(n), NIL, (V(f), (PRED, V(n))))
+            )
+        )
+    )
+);
+
+// Inclusive Ascending List
+const Application ALIST((
+    Y,
+    (
+        V(f) >> (
+            V(i) >> (
                 V(n) >> (
-                    ISZERO, V(n), (HEAD, V(l)), (V(f), (TAIL, V(l)), (PRED, V(n)))
+                    CONS, V(i), (LEQ, V(n), V(i), NIL, (V(f), (SUCC, V(i)), V(n)))
+                )
+            )
+        )
+    ),
+    ZERO
+));
+
+// Inclusive Range
+const Application RANGE(
+    Y,
+    (
+        V(f) >> (
+            V(a) >> (
+                V(b) >> (
+                    CONS, V(a),
+                    (
+                        LEQ, V(a), V(b),
+                        (
+                            LEQ, V(b), V(a),
+                            NIL,
+                            (V(f), (SUCC, V(a)), V(b))
+                        ),
+                        (
+                            V(f), (PRED, V(a)), V(b)
+                        )
+                    )
                 )
             )
         )
     )
 );
+//}
+
+// Algorithms
+//{
+// List Boolean AND
+const Application LAND(
+    Y,
+    (
+        V(f) >> (
+            V(l) >> (
+                ISNIL, V(l), TRUE, (HEAD, V(l), (V(f), (TAIL, V(l))), FALSE)
+            )
+        )
+    )
+);
+
+// List Boolean OR
+const Application LOR(
+    Y,
+    (
+        V(f) >> (
+            V(l) >> (
+                ISNIL, V(l), FALSE, (HEAD, V(l), TRUE, (V(f), (TAIL, V(l))))
+            )
+        )
+    )
+);
+
+// List Natural Minimum
+const Abstraction LMIN(
+    V(l) >> (
+        Y,
+        (
+            V(f) >> (
+                V(l) >> (
+                    V(n) >> (
+                        ISNIL, V(l), V(n), (V(f), (TAIL, V(l)), (MIN, (HEAD, V(l)), V(n)))
+                    )
+                )
+            )
+        ),
+        (TAIL, V(l)),
+        (HEAD, V(l))
+    )
+);
+
+// List Natural Maximum
+const Abstraction LMAX(
+    V(l) >> (
+        Y,
+        (
+            V(f) >> (
+                V(l) >> (
+                    V(n) >> (
+                        ISNIL, V(l), V(n), (V(f), (TAIL, V(l)), (MAX, (HEAD, V(l)), V(n)))
+                    )
+                )
+            )
+        ),
+        (TAIL, V(l)),
+        (HEAD, V(l))
+    )
+);
+
+// List Natural Addition
+const Abstraction LADD(
+    V(l) >> (
+        Y,
+        (
+            V(f) >> (
+                V(l) >> (
+                    V(n) >> (
+                        ISNIL, V(l), V(n), (V(f), (TAIL, V(l)), (ADD, (HEAD, V(l)), V(n)))
+                    )
+                )
+            )
+        ),
+        (TAIL, V(l)),
+        (HEAD, V(l))
+    )
+);
+
+// List Natural Multiplication
+const Abstraction LMUL(
+    V(l) >> (
+        Y,
+        (
+            V(f) >> (
+                V(l) >> (
+                    V(n) >> (
+                        ISNIL, V(l), V(n), (V(f), (TAIL, V(l)), (MUL, (HEAD, V(l)), V(n)))
+                    )
+                )
+            )
+        ),
+        (TAIL, V(l)),
+        (HEAD, V(l))
+    )
+);
+//}
+
+// Alternative Cons Syntax
+//{
+/**
+ * Takes two arguments and applies the Cons (Pair) function to them.
+ */
+template <typename Element, typename List>
+Application operator|(const Element& element, const List& list) noexcept {
+    return CONS, element, list;
+}
+//}
 //}
 
 // Algorithms
@@ -396,7 +1512,7 @@ const Application FACT(
     (
         V(f) >> (
             V(n) >> (
-                ISZERO, V(n), ONE, (MULT, V(n), (V(f), (PRED, V(n))))
+                ISZERO, V(n), ONE, (MUL, V(n), (V(f), (PRED, V(n))))
             )
         )
     )
@@ -411,7 +1527,7 @@ const Application FIBO(
                 ISZERO, V(n), ZERO,
                 (
                     ISZERO, (PRED, V(n)), ONE,
-                    (PLUS, (V(f), (PRED, V(n))), (V(f), (PRED, (PRED, V(n)))))
+                    (ADD, (V(f), (PRED, V(n))), (V(f), (PRED, (PRED, V(n)))))
                 )
             )
         )
@@ -419,10 +1535,5 @@ const Application FIBO(
 );
 //}
 //}
-
-// The lambda term to be evaluated.
-const LambdaTerm& MAIN = (
-    FACT, NAT(3)
-);
 
 #undef V
