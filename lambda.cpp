@@ -1,11 +1,8 @@
-#include <iostream>
-#include <sstream>
-#include <memory>
 #include "lambda.hpp"
 
 // The lambda term to be evaluated.
 const LambdaTerm& MAIN = (
-    SIZE, (FILT, (TRUE | (FALSE | (TRUE | (FALSE |(TRUE | NIL))))), I)
+    SIGN, (IEXP, ITWON, ITWOP)
 );
 
 /**

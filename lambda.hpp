@@ -1,3 +1,8 @@
+#include <iostream>
+#include <sstream>
+#include <memory>
+#include <cstdlib>
+
 // System
 //{
 // Verbosity
@@ -11,7 +16,7 @@ enum Verbosity {
     VERBOSE
 };
 
-// True if the details of evaluation are to be displayed.
+// The verbosity level to be used.
 constexpr Verbosity VERBOSITY = BASIC;
 //}
 
@@ -854,6 +859,15 @@ const Abstraction XOR(
         )
     )
 );
+
+// Boolean Equality
+const Abstraction BEQ(
+    V(p) >> (
+        V(q) >> (
+            V(p), V(q), (NOT, V(q))
+        )
+    )
+);
 //}
 
 // Natural Numbers
@@ -872,6 +886,15 @@ const Abstraction ONE(
     V(f) >> (
         V(x) >> (
             V(f), V(x)
+        )
+    )
+);
+
+// Natural Two
+const Abstraction TWO(
+    V(f) >> (
+        V(x) >> (
+            V(f), (V(f), V(x))
         )
     )
 );
@@ -969,6 +992,24 @@ const Abstraction LEQ(
     V(m) >> (
         V(n) >> (
             ISZERO, (SUB, V(m), V(n))
+        )
+    )
+);
+
+// Natural Equality Test
+const Abstraction EQ(
+    V(m) >> (
+        V(n) >> (
+            AND, (LEQ, V(m), V(n)), (LEQ, V(n), V(m))
+        )
+    )
+);
+
+// Natural Less Than Test
+const Abstraction LESS(
+    V(m) >> (
+        V(n) >> (
+            AND, (LEQ, V(m), V(n)), (NOT, (LEQ, V(n), V(m)))
         )
     )
 );
@@ -1502,6 +1543,361 @@ Application operator|(const Element& element, const List& list) noexcept {
     return CONS, element, list;
 }
 //}
+//}
+
+// Trees
+//{
+// General
+//{
+// Tree Formation
+const Abstraction TREE(
+    V(v) >> (
+        V(l) >> (
+            V(r) >> (
+                V(f) >> (
+                    V(f), V(v), V(l), V(r)
+                )
+            )
+        )
+    )
+);
+
+// Empty Tree
+const Abstraction ENODE(
+    NIL
+);
+
+// Empty Tree Test
+const Abstraction ISEXT(
+    V(t) >> (
+        V(t),
+        (
+            V(v) >> (
+                V(l) >> (
+                    V(r) >> (
+                        FALSE
+                    )
+                )
+            )
+        )
+    )
+);
+
+// Tree Value Extraction
+const Abstraction TVAL(
+    V(t) >> (
+        V(t),
+        (
+            V(v) >> (
+                V(l) >> (
+                    V(r) >> (
+                        V(v)
+                    )
+                )
+            )
+        )
+    )
+);
+
+// Left Tree Extraction
+const Abstraction LTREE(
+    V(t) >> (
+        V(t),
+        (
+            V(v) >> (
+                V(l) >> (
+                    V(r) >> (
+                        V(l)
+                    )
+                )
+            )
+        )
+    )
+);
+
+// Right Tree Extraction
+const Abstraction RTREE(
+    V(t) >> (
+        V(t),
+        (
+            V(v) >> (
+                V(l) >> (
+                    V(r) >> (
+                        V(r)
+                    )
+                )
+            )
+        )
+    )
+);
+//}
+//}
+
+// Integers
+//{
+// Postive Sign
+const Abstraction PVE(
+    TRUE
+);
+
+// Negative Sign
+const Abstraction NVE(
+    FALSE
+);
+
+// Integer Sign Extraction
+const Abstraction SIGN(
+    FIRST
+);
+
+// Integer Sign Equality Test
+const Abstraction SEQ(
+    V(x) >> (
+        V(y) >> (
+            BEQ, (SIGN, V(x)), (SIGN, V(y))
+        )
+    )
+);
+
+// Integer Magnitude Extraction
+const Abstraction MAG(
+    SECOND
+);
+
+// Integer Magnitude Equality Test
+const Abstraction MEQ(
+    V(x) >> (
+        V(y) >> (
+            EQ, (MAG, V(x)), (MAG, V(y))
+        )
+    )
+);
+
+// Integer Sign Swap
+const Abstraction SWAP(
+    V(i) >> (
+        PAIR, (NOT, (SIGN, V(i))), (MAG, V(i))
+    )
+);
+
+// Integer Positive Zero
+const Application IZEROP((
+    PAIR, PVE, ZERO
+));
+
+// Integer Negative Zero
+const Application IZERON((
+    PAIR, NVE, ZERO
+));
+
+// Integer Zero Test
+const Abstraction ISIZERO(
+    V(i) >> (
+        ISZERO, (MAG, V(i))
+    )
+);
+
+// Integer Equality Test
+const Abstraction IEQ(
+    V(x) >> (
+        V(y) >> (
+            AND, (ISIZERO, V(x)), (ISIZERO, V(y)),
+            (
+                TRUE
+            ),
+            (
+                AND, (SEQ, V(x), V(y)), (MEQ, V(x), V(y))
+            )
+        )
+    )
+);
+
+// Integer Postive One
+const Application IONEP((
+    PAIR, PVE, ONE
+));
+
+// Integer Negative One
+const Application IONEN((
+    PAIR, NVE, ONE
+));
+
+// Integer Postive Two
+const Application ITWOP((
+    PAIR, PVE, TWO
+));
+
+// Integer Negative Two
+const Application ITWON((
+    PAIR, NVE, TWO
+));
+
+// Integer Positive Test
+const Abstraction ISPOS(
+    V(i) >> (
+        ISIZERO, V(i),
+        (
+            FALSE
+        ),
+        (
+            SIGN, V(i)
+        )
+    )
+);
+
+// Integer Negative Test
+const Abstraction ISNEG(
+    V(i) >> (
+        ISIZERO, V(i),
+        (
+            FALSE
+        ),
+        (
+            NOT, (SIGN, V(i))
+        )
+    )
+);
+
+// Integer Increment
+const Abstraction INC(
+    V(i) >> (
+        SIGN, V(i),
+        (
+            PAIR, (SIGN, V(i)), (SUCC, (MAG, V(i)))
+        ),
+        (
+            ISIZERO, V(i),
+            (
+                IONEP
+            ),
+            (
+                PAIR, (SIGN, V(i)), (PRED, (MAG, V(i)))
+            )
+        )
+    )
+);
+
+// Integer Decrement
+const Abstraction DEC(
+    V(i) >> (
+        SIGN, V(i),
+        (
+            ISIZERO, V(i),
+            (
+                IONEN
+            ),
+            (
+                PAIR, (SIGN, V(i)), (PRED, (MAG, V(i)))
+            )
+        ),
+        (
+            PAIR, (SIGN, V(i)), (SUCC, (MAG, V(i)))
+        )
+    )
+);
+
+// Integer Addition
+const Abstraction IADD(
+    V(x) >> (
+        V(y) >> (
+            PAIR,
+            (
+                SEQ, V(x), V(y),
+                (
+                    (SIGN, V(x)), (ADD, (MAG, V(x)), (MAG, V(y)))
+                ),
+                (
+                    LEQ, (MAG, V(x)), (MAG, V(y)),
+                    (
+                        (SIGN, V(y)), (SUB, (MAG, V(y)), (MAG, V(x)))
+                    ),
+                    (
+                        (SIGN, V(x)), (SUB, (MAG, V(x)), (MAG, V(y)))
+                    )
+                )
+            )
+        )
+    )
+);
+
+// Integer Substraction
+const Abstraction ISUB(
+    V(x) >> (
+        V(y) >> (
+            IADD, V(x), (SWAP, V(y))
+        )
+    )
+);
+
+// Integer Multiplication
+const Abstraction IMUL(
+    V(x) >> (
+        V(y) >> (
+            PAIR, (SEQ, V(x), V(y)), (MUL, (MAG, V(x)), (MAG, V(y)))
+        )
+    )
+);
+
+// Integer Division
+const Abstraction IDIV(
+    V(x) >> (
+        V(y) >> (
+            PAIR, (SEQ, V(x), V(y)), (DIV, (MAG, V(x)), (MAG, V(y)))
+        )
+    )
+);
+
+// Integer Modulo
+const Abstraction IMOD(
+    V(x) >> (
+        V(y) >> (
+            PAIR, (SIGN, V(y)),
+            (
+                SEQ, V(x), V(y),
+                (
+                    MOD, (MAG, V(x)), (MAG, V(y))
+                ),
+                (
+                    MOD, (SUB, (MAG, V(y)), (MOD, (MAG, V(x)), (MAG, V(y)))), (MAG, V(y))
+                )
+            )
+        )
+    )
+);
+
+// Integer Exponential
+const Abstraction IEXP(
+    V(x) >> (
+        V(y) >> (
+            ISNEG, V(y),
+            (
+                IZEROP
+            ),
+            (
+                PAIR,
+                (
+                    SIGN, V(x),
+                    (
+                        PVE
+                    ),
+                    (
+                        ISIZERO, (IMOD, V(y), ITWOP)
+                    )
+                ),
+                (
+                    EXP, (MAG, V(x)), (MAG, V(y))
+                )
+            )
+        )
+    )
+);
+
+/**
+ * Returns the integer corresponding to the given argument.
+ */
+Application INT(int i) noexcept {
+    return PAIR, (i < 0 ? NVE : PVE), NAT(std::abs(i));
+}
 //}
 
 // Algorithms
