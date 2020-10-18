@@ -693,6 +693,8 @@ Application operator,(const Function& function, const Argument& argument) noexce
 //{
 // Combinators
 //{
+// SKI Combinatorics
+//{
 /* I Combinator
  * Returns the argument given.
  */
@@ -726,7 +728,10 @@ const Abstraction S(
         )
     )
 );
+//}
 
+// Application Order Combinators
+//{
 // B Combinator
 const Abstraction B(
     V(x) >> (
@@ -757,7 +762,10 @@ const Abstraction W(
         )
     )
 );
+//}
 
+// Recursion Combinators
+//{
 /* U Combinator
  * Applies the argument to itself.
  */
@@ -781,7 +789,10 @@ const Abstraction Y(
         )
     )
 );
+//}
 
+// Unique Combinators
+//{
 /* Iota Combinator
  * The Iota Combinator is Turing Complete by itself.
  * IOTA, IOTA = I
@@ -805,8 +816,11 @@ const Application OMEGA(
     U, U
 );
 //}
+//}
 
 // Booleans
+//{
+// Instances
 //{
 // Boolean True
 const Abstraction TRUE(
@@ -825,7 +839,10 @@ const Abstraction FALSE(
         )
     )
 );
+//}
 
+// Operations
+//{
 // Boolean Not
 const Abstraction NOT(
     V(p) >> (
@@ -869,8 +886,11 @@ const Abstraction BEQ(
     )
 );
 //}
+//}
 
 // Natural Numbers
+//{
+// Instances
 //{
 // Natural Zero
 const Abstraction ZERO(
@@ -898,7 +918,10 @@ const Abstraction TWO(
         )
     )
 );
+//}
 
+// Operations
+//{
 // Natural Successor
 const Abstraction SUCC(
     V(n) >> (
@@ -973,7 +996,10 @@ const Abstraction SUB(
         )
     )
 );
+//}
 
+// Tests
+//{
 // Natural Zero Test
 const Abstraction ISZERO(
     V(n) >> (
@@ -1013,7 +1039,10 @@ const Abstraction LESS(
         )
     )
 );
+//}
 
+// Advanced Operations
+//{
 // Natural Division
 const Abstraction DIV(
     V(x) >> (
@@ -1082,7 +1111,10 @@ const Abstraction MAX(
         )
     )
 );
+//}
 
+// Generation
+//{
 /**
  * Returns the Church Numeral corresponding to the given argument.
  */
@@ -1112,8 +1144,11 @@ Abstraction NAT(int n) noexcept {
     }
 }
 //}
+//}
 
 // Pairs
+//{
+// Generation and Extraction
 //{
 // Value Pair
 const Abstraction PAIR(
@@ -1139,6 +1174,18 @@ const Abstraction SECOND(
         V(p), FALSE
     )
 );
+//}
+
+// Alternative Syntax
+//{
+/**
+ * Takes two arguments and applies the PAIR function to them.
+ */
+template <typename Element, typename List>
+Application operator|(const Element& element, const List& list) noexcept {
+    return PAIR, element, list;
+}
+//}
 //}
 
 // Lists
@@ -1532,17 +1579,6 @@ const Abstraction LMUL(
     )
 );
 //}
-
-// Alternative Cons Syntax
-//{
-/**
- * Takes two arguments and applies the Cons (Pair) function to them.
- */
-template <typename Element, typename List>
-Application operator|(const Element& element, const List& list) noexcept {
-    return CONS, element, list;
-}
-//}
 //}
 
 // Trees
@@ -1554,86 +1590,36 @@ const Abstraction TREE(
     V(v) >> (
         V(l) >> (
             V(r) >> (
-                V(f) >> (
-                    V(f), V(v), V(l), V(r)
-                )
-            )
-        )
-    )
-);
-
-// Empty Tree
-const Abstraction ENODE(
-    NIL
-);
-
-// Empty Tree Test
-const Abstraction ISEXT(
-    V(t) >> (
-        V(t),
-        (
-            V(v) >> (
-                V(l) >> (
-                    V(r) >> (
-                        FALSE
-                    )
-                )
+                PAIR, V(v), (PAIR, V(l), V(r))
             )
         )
     )
 );
 
 // Tree Value Extraction
-const Abstraction TVAL(
-    V(t) >> (
-        V(t),
-        (
-            V(v) >> (
-                V(l) >> (
-                    V(r) >> (
-                        V(v)
-                    )
-                )
-            )
-        )
-    )
+const Abstraction TREEV(
+    FIRST
 );
 
 // Left Tree Extraction
-const Abstraction LTREE(
+const Abstraction TREEL(
     V(t) >> (
-        V(t),
-        (
-            V(v) >> (
-                V(l) >> (
-                    V(r) >> (
-                        V(l)
-                    )
-                )
-            )
-        )
+        FIRST, (SECOND, V(t))
     )
 );
 
 // Right Tree Extraction
-const Abstraction RTREE(
+const Abstraction TREER(
     V(t) >> (
-        V(t),
-        (
-            V(v) >> (
-                V(l) >> (
-                    V(r) >> (
-                        V(r)
-                    )
-                )
-            )
-        )
+        SECOND, (SECOND, V(t))
     )
 );
 //}
 //}
 
 // Integers
+//{
+// Signs
 //{
 // Postive Sign
 const Abstraction PVE(
@@ -1644,7 +1630,43 @@ const Abstraction PVE(
 const Abstraction NVE(
     FALSE
 );
+//}
 
+// Instances
+//{
+// Integer Positive Zero
+const Application IZEROP((
+    PAIR, PVE, ZERO
+));
+
+// Integer Negative Zero
+const Application IZERON((
+    PAIR, NVE, ZERO
+));
+
+// Integer Postive One
+const Application IONEP((
+    PAIR, PVE, ONE
+));
+
+// Integer Negative One
+const Application IONEN((
+    PAIR, NVE, ONE
+));
+
+// Integer Postive Two
+const Application ITWOP((
+    PAIR, PVE, TWO
+));
+
+// Integer Negative Two
+const Application ITWON((
+    PAIR, NVE, TWO
+));
+//}
+
+// Component Management
+//{
 // Integer Sign Extraction
 const Abstraction SIGN(
     FIRST
@@ -1672,7 +1694,10 @@ const Abstraction MEQ(
         )
     )
 );
+//}
 
+// Sign Operations
+//{
 // Integer Sign Swap
 const Abstraction SWAP(
     V(i) >> (
@@ -1680,16 +1705,16 @@ const Abstraction SWAP(
     )
 );
 
-// Integer Positive Zero
-const Application IZEROP((
-    PAIR, PVE, ZERO
-));
+// Integer Absolute Value
+const Abstraction ABS(
+    V(i) >> (
+        PAIR, PVE, (MAG, V(i))
+    )
+);
+//}
 
-// Integer Negative Zero
-const Application IZERON((
-    PAIR, NVE, ZERO
-));
-
+// Tests
+//{
 // Integer Zero Test
 const Abstraction ISIZERO(
     V(i) >> (
@@ -1711,26 +1736,6 @@ const Abstraction IEQ(
         )
     )
 );
-
-// Integer Postive One
-const Application IONEP((
-    PAIR, PVE, ONE
-));
-
-// Integer Negative One
-const Application IONEN((
-    PAIR, NVE, ONE
-));
-
-// Integer Postive Two
-const Application ITWOP((
-    PAIR, PVE, TWO
-));
-
-// Integer Negative Two
-const Application ITWON((
-    PAIR, NVE, TWO
-));
 
 // Integer Positive Test
 const Abstraction ISPOS(
@@ -1757,7 +1762,10 @@ const Abstraction ISNEG(
         )
     )
 );
+//}
 
+// Operations
+//{
 // Integer Increment
 const Abstraction INC(
     V(i) >> (
@@ -1800,20 +1808,17 @@ const Abstraction DEC(
 const Abstraction IADD(
     V(x) >> (
         V(y) >> (
-            PAIR,
+            SEQ, V(x), V(y),
             (
-                SEQ, V(x), V(y),
+                PAIR, (SIGN, V(x)), (ADD, (MAG, V(x)), (MAG, V(y)))
+            ),
+            (
+                LEQ, (MAG, V(x)), (MAG, V(y)),
                 (
-                    (SIGN, V(x)), (ADD, (MAG, V(x)), (MAG, V(y)))
+                    PAIR, (SIGN, V(y)), (SUB, (MAG, V(y)), (MAG, V(x)))
                 ),
                 (
-                    LEQ, (MAG, V(x)), (MAG, V(y)),
-                    (
-                        (SIGN, V(y)), (SUB, (MAG, V(y)), (MAG, V(x)))
-                    ),
-                    (
-                        (SIGN, V(x)), (SUB, (MAG, V(x)), (MAG, V(y)))
-                    )
+                    PAIR, (SIGN, V(x)), (SUB, (MAG, V(x)), (MAG, V(y)))
                 )
             )
         )
@@ -1892,12 +1897,25 @@ const Abstraction IEXP(
     )
 );
 
+// Integer Less Than
+const Abstraction ILESS(
+    V(x) >> (
+        V(y) >> (
+            ISNEG, (ISUB, V(x), V(y))
+        )
+    )
+);
+//}
+
+// Generation
+//{
 /**
  * Returns the integer corresponding to the given argument.
  */
 Application INT(int i) noexcept {
     return PAIR, (i < 0 ? NVE : PVE), NAT(std::abs(i));
 }
+//}
 //}
 
 // Algorithms

@@ -2,7 +2,7 @@
 
 // The lambda term to be evaluated.
 const LambdaTerm& MAIN = (
-    SIGN, (IEXP, ITWON, ITWOP)
+    TREEV, (TREER, (NAT(3) | (NIL | (NAT(2) | (NIL | NIL)))))
 );
 
 /**
